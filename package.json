@@ -1,5 +1,5 @@
 {
-  "name": "node-red-contrib-llumin-client",
+  "name": "node-red-contrib-llumin",
   "version": "1.0.2",
   "description": "Node to send machine data to LLumin servers",
   "author": "LLumin Inc",
