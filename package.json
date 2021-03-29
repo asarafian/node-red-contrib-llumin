@@ -1,0 +1,19 @@
+{
+  "name": "node-red-contrib-llumin-client",
+  "version": "1.0.2",
+  "description": "Node to send machine data to LLumin servers",
+  "author": "LLumin Inc",
+  "license": "UNLICENSED",
+  "keywords": [
+    "llumin"
+  ],
+  "dependencies": {
+    "axios": "^0.21.1",
+    "node-signalr": "^2.0.5"
+  },
+  "node-red": {
+    "nodes": {
+      "llumin-client": "llumin-client/node.js"
+    }
+  }
+}

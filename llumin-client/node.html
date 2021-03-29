@@ -1,0 +1,35 @@
+<script type="text/html" data-template-name="llumin-client">
+    <div class="form-row">
+        <label for="node-input-url"><i class="fa fa-tag"></i> LLumin Server URL</label>
+        <input type="text" id="node-input-url" placeholder="URL">
+    </div>
+    <div class="form-row">
+        <label for="node-input-username"><i class="fa fa-tag"></i> Username</label>
+        <input type="text" id="node-input-username" placeholder="Username">
+    </div>
+    <div class="form-row">
+        <label for="node-input-password"><i class="fa fa-tag"></i> Password</label>
+        <input type="text" id="node-input-password" placeholder="">
+    </div>
+    <div class="form-row">
+        <label for="node-input-lluminServiceName"><i class="fa fa-tag"></i> LLumin Service Name</label>
+        <input type="text" id="node-input-lluminServiceName" placeholder="">
+    </div>
+    <div class="form-tips"><b>Tip:</b> This is here to help.</div>
+</script>
+
+<script type="text/javascript">
+    RED.nodes.registerType('llumin-client',{
+        category: 'network',
+        defaults: {
+            url: { value: '', required: true },
+            username: { value: '', required: true },
+            password: { value: '', required: false },
+            lluminServiceName: { value: '', required: true },
+        },
+        icon: "bridge.svg",
+        inputs:1,
+        outputs:1,
+        label: this.url || "LLumin Server"
+    });
+</script>
