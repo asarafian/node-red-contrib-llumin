@@ -1,5 +1,4 @@
-import axios from 'axios';
-import store from '../renderer/store';
+const axios = require('axios').default;
 const signalr = require('node-signalr');
 const EventEmitter = require('events');
 
@@ -13,22 +12,16 @@ class LLuminApi extends EventEmitter  {
         this.password = password;
         this.lluminServiceName = options.lluminServiceName ||  'LLuminMachineInterface';
         this.signalRPaused = options.signalRPaused ||  false;
+        this.node = options.node || false;
         this.accessToken = null;
         this.accessTokenExpiration = 0;
         this.headers = {'Content-Type': 'application/json'};
         this.gettingToken = false;
         this.axios = axios.create({});
 
-        // Update status
-        this.updateStatus = "UPDATE_LLUMIN_STATUS";
-        if (options.secondary) {
-            this.updateStatus = "UPDATE_LLUMIN_STATUS2";
-        }
-
         // Initialize SignalR client.
         this.signalRUrl = this.lluminUrl + 'signalr';
         this.signalRConnecting = false;
-        store.dispatch(this.updateStatus, 'disconnected');
         this.hubName = 'machineInterfaceHub';
         this.hub = null;
         this.signalRClient = new signalr.client(
@@ -42,33 +35,33 @@ class LLuminApi extends EventEmitter  {
         // Initialize signalR callbacks
         this.signalRClient.on('connected', () => {
             this.signalRConnecting = false;
-            store.dispatch(this.updateStatus, 'connected');
-            console.log('SignalR client connected.')
+            console.log('SignalR client connected.');
+            if (this.node) this.node.status({fill:"green",shape:"dot",text:"connected"});
         });
         this.signalRClient.on('reconnecting', (count) => {
             console.log(`SignalR client reconnecting(${count}).`);
-            store.dispatch(this.updateStatus, `reconnecting(${count})`);
+            if (this.node) this.node.status({fill:"red",shape:"ring",text:"reconnecting"});
         });
         this.signalRClient.on('disconnected', (code) => {
             console.log(`SignalR client disconnected(${code}).`);
-            store.dispatch(this.updateStatus, `disconnected(${code})`);
+            if (this.node) this.node.status({fill:"red",shape:"ring",text:"disconnected"});
         });
         this.signalRClient.on('error', (code) => {
             console.log(`SignalR client error: ${code}.`);
-            store.dispatch(this.updateStatus, `error(${code})`);
+            if (this.node) this.node.status({fill:"red",shape:"ring",text:"error"});
             if (code === "Unauthorized") this.accessTokenExpiration = 0;
             this.signalRConnecting = false;
             this.connectSignalR();
         });
-        this.signalRClient.connection.hub.on(this.hubName, 'echo', this._receiveMessage);
+        this.signalRClient.connection.hub.on(this.hubName, 'echo', this._receiveMessage());
         this.signalRClient.connection.hub.on(this.hubName, 'pause', () => {
             console.log('Got pause');
-            store.dispatch(this.updateStatus, 'paused');
+            if (this.node) this.node.status({fill:"yellow",shape:"ring",text:"paused"});
             this.signalRPaused = true;
         });
         this.signalRClient.connection.hub.on(this.hubName, 'resume', () => {
             console.log('Got resume');
-            store.dispatch(this.updateStatus, 'connected');
+            if (this.node) this.node.status({fill:"green",shape:"dot",text:"connected"});
             this.signalRPaused = false;
         });
         this.signalRClient.connection.hub.on(this.hubName, 'tagsLoaded', () => this._tagsLoaded());
@@ -116,16 +109,13 @@ class LLuminApi extends EventEmitter  {
     async getServers() {
         await this.getAccessToken();
         console.log('Getting server list from LLumin server');
-        return this.axios.request({
+        return await this.axios.request({
             url: this.lluminUrl + "api/MachineInterface/GetServers",
             method: 'GET',
             headers: this.headers
         })
             .then(result => {
                 let results = [];
-                if (!(result.data instanceof Array)) {
-                    console.error('GetServers result.data not an array: ', result)
-                }
                 result.data.forEach((element) => {
                     results.push({
                         id: element.ServerId,
@@ -145,7 +135,7 @@ class LLuminApi extends EventEmitter  {
         await this.getAccessToken();
         console.log(`Adding OPC server to LLumin: ${newServer.name}`);
         newServer.isInactive = false;
-        return this.axios.request({
+        return await this.axios.request({
             url: this.lluminUrl + "api/MachineInterface/AddServer",
             method: 'POST',
             data: {
@@ -167,7 +157,7 @@ class LLuminApi extends EventEmitter  {
     async updateServer(server) {
         await this.getAccessToken();
         console.log(`Updating server on LLumin: ${server.name}`);
-        return this.axios.request({
+        return await this.axios.request({
             url: this.lluminUrl + "api/MachineInterface/UpdateServer",
             method: 'PUT',
             data: {
@@ -180,17 +170,14 @@ class LLuminApi extends EventEmitter  {
             },
             headers: this.headers
         })
-            .then(_ => {
-                store.dispatch("UPDATE_CONNECTION", server);
-                return server
-            })
-            .catch(e => console.error('update server error: ',  e.message));
+            .then(result => server)
+            .catch(e => console.error('update server error: ', e.message));
     }
 
     async deleteServer(server) {
         await this.getAccessToken();
         console.log(`Deleting server on LLumin: ${server.name}`);
-        return this.axios.request({
+        return await this.axios.request({
             url: this.lluminUrl + "api/MachineInterface/DeleteServer",
             method: 'POST',
             data: {
@@ -198,7 +185,7 @@ class LLuminApi extends EventEmitter  {
             },
             headers: this.headers
         })
-            .then(_ => server)
+            .then(result => server)
             .catch(e => console.error('update server error: ', e.message));
     }
 
@@ -275,6 +262,7 @@ class LLuminApi extends EventEmitter  {
             .catch(e => console.error('get llumin asset error: ', e.message));
     }
 
+
     //
     // SignalR Methods
     //
@@ -292,8 +280,8 @@ class LLuminApi extends EventEmitter  {
                 this.signalRConnecting = true;
                 this.signalRClient.start();
             }
-        } catch (e) {
-            console.error('SignalR connection error: ', e);
+        } catch (err) {
+            console.error('SignalR connection error: ', err);
         }
     }
 
@@ -337,4 +325,4 @@ class LLuminApi extends EventEmitter  {
     }
 }
 
-export default LLuminApi;
+module.exports = LLuminApi;
